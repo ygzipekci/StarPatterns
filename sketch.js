@@ -7,42 +7,69 @@
 // var poly;
 var polys = [];
 
-var angle = 75;
+var angle = 10;
 var delta = 10;
 
-var deltaSlider;
-var angleSlider;
-var angleSliderIncrease;
-var deltaSliderIncrease;
-var cycleSlider;
 var tilingTypeSelect;
 var gridCheck;
 
-function setup() {
-  var canvas = createCanvas(400, 400);
-  canvas.parent('canvasContainer');
+let song;
+let playPauseButton;
+let amp;
+let fft;
 
+function preload() {
+  song = loadSound("taksim-makam-improv-dance-uzzal.mp3");
+}
+
+function setup() {
+  var canvas = createCanvas(windowWidth, windowHeight);
   // angleMode(DEGREES);
+  canvas.drop(gotFile);
+  
+  song.play();
+  playPauseButton = createButton('Play')
+  playPauseButton.mousePressed(togglePlay);
+  amp = new p5.Amplitude();
+  amp.toggleNormalize(true);
+  fft = new p5.FFT();
+
   background(51);
-  deltaSlider = select('#delta');
-  angleSlider = select('#angle');
-  levelSlider = select('#level');
   tilingTypeSelect = select('#tiling');
   tilingTypeSelect.changed(chooseTiling);
   gridCheck = select('#showGrid');
-  angleSliderIncrease = select('#angleIncrease');
-  deltaSliderIncrease = select('#deltaIncrease');
-  cycleSlider = select('#cycleIncrease');
   chooseTiling();
 }
 
+function gotFile(file) {
+    if (file.type === 'audio') {
+        song = loadSound(file, song.stop());
+    } else {
+        alert("Not an audio file!");
+    }
+}
+
+function togglePlay() {
+  if (!song.isPlaying()) {
+    song.play();
+    playPauseButton.html('Pause')
+  }else{
+    song.pause();
+    playPauseButton.html('Play')
+  }
+}
+
 function draw() {
-  background(50);
-  angle = angleSlider.value();
-  delta = deltaSlider.value();
-  level = levelSlider.value();
-  var t = 0;
-  var step = cycleSlider.value() / polys.length;
+  fft.analyze();
+  background(0);
+  amp.smooth(0.9);
+  angle = map(amp.getLevel(), 0, 1, 0, 90);
+  //console.log(angle, amp.getLevel());
+  
+  fft.smooth(0.9);
+  delta = map(fft.getEnergy("bass"), 0, 255, 0, 50);
+  //console.log(delta, fft.getEnergy("bass"));
+  
   for (var i = 0; i < polys.length; i++) {
     angle += (Math.sin(step * i)) * angleSliderIncrease.value();
     delta += (Math.sin(step * i)) * deltaSliderIncrease.value();
@@ -71,7 +98,7 @@ function hexTriangleSquareTiling() {
 
 function squareTiling() {
   polys = [];
-  var inc = 100;
+  var inc = height/13;
   for (var x = 0; x < width; x += inc) {
     for (var y = 0; y < height; y += inc) {
       var poly = new Polygon(4);
@@ -107,67 +134,10 @@ function chooseTiling() {
       dodecaHexSquareTiling();
       break;
     case "hexa_triangle_square":
-      // dodecaHexSquareTiling();
       hexTriangleSquareTiling();
       break;
     default:
       hexTriangleSquareTiling();
-      // dodecaHexSquareTiling();
-      // squareTiling();
       break;
   }
-}
-
-function printPoints() {
-  var data = {
-    a: 1,
-    b: 2,
-    c: 3
-  };
-  var json = JSON.stringify(data);
-  var blob = new Blob([json], {
-    type: "application/json"
-  });
-  var url = URL.createObjectURL(blob);
-
-  var a = document.createElement('a');
-  a.download = "backup.json";
-  a.href = url;
-  a.textContent = "Download backup.json";
-  var points = [];
-
-  polys.forEach(function(poly) {
-    poly.edges.forEach(function(edge) {
-      points.push(edge.h1.a);
-      points.push(edge.h1.end);
-      points.push(edge.h2.a);
-      points.push(edge.h2.end);
-    });
-  });
-
-  var pointList = points.map(function(point) {
-    return [point.x, point.y];
-  });
-
-  return (JSON.stringify(pointList));
-}
-
-var link;
-
-function saveDrawing() {
-  var json = printPoints();
-  var blob = new Blob([json], {
-    type: "application/json"
-  });
-  var url = URL.createObjectURL(blob);
-  if (link) {
-    link.parentNode.removeChild(link);
-  }
-  var a = document.createElement('a');
-  a.download = "drawing.json";
-  a.href = url;
-  a.textContent = "Download drawing.json";
-  link = a;
-  var bp = document.getElementById('yellowDiv')
-  bp.appendChild(a);
 }
